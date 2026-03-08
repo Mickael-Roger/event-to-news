@@ -1,6 +1,6 @@
 """
 Pronote module — fetches grades, homework, absences, and punishments
-from a PRONOTE student/parent account and publishes them as feed items.
+from a PRONOTE parent account and publishes them as feed items.
 
 Authentication:
   Place a credentials.json file in the module's data directory before first run:
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS seen_items (
 
 
 class PronoteModule(BaseModule):
-    """Fetch school events from a PRONOTE account."""
+    """Fetch school events from a PRONOTE parent account."""
 
     def __init__(self, feed_slug: str, params: dict[str, Any], data_dir: Path) -> None:
         super().__init__(feed_slug, params, data_dir)
@@ -121,7 +121,7 @@ class PronoteModule(BaseModule):
         return new_items
 
     def _login(self, pronotepy):
-        """Load credentials.json and return an authenticated client, or None."""
+        """Load credentials.json and return an authenticated ParentClient, or None."""
         if not self._credentials_path.exists():
             self.logger.error(
                 "credentials.json not found at %s. "
@@ -137,13 +137,9 @@ class PronoteModule(BaseModule):
             return None
 
         try:
-            return pronotepy.Client.token_login(
-                creds["pronote_url"],
-                creds["username"],
-                creds["password"],  # pronotepy stores the token as "password"
-                creds["uuid"],
-                client_identifier=creds.get("client_identifier"),
-            )
+            # Use ParentClient (not Client) — required for parent accounts
+            client = pronotepy.ParentClient.token_login(**creds)
+            return client
         except Exception as exc:  # noqa: BLE001
             self.logger.exception("Login failed: %s", exc)
             return None
@@ -183,6 +179,7 @@ class PronoteModule(BaseModule):
     # ------------------------------------------------------------------
 
     def _collect_grades(self, client, prefix: str) -> list[FeedItem]:
+        """Collect grades across all periods."""
         items = []
         try:
             for period in client.periods:
@@ -224,6 +221,7 @@ class PronoteModule(BaseModule):
         return items
 
     def _collect_homework(self, client, prefix: str) -> list[FeedItem]:
+        """Collect homework due from today onwards."""
         import datetime as dt
 
         items = []
@@ -263,86 +261,85 @@ class PronoteModule(BaseModule):
         return items
 
     def _collect_punishments(self, client, prefix: str) -> list[FeedItem]:
+        """Collect punishments from the current period only."""
         items = []
         try:
-            for period in client.periods:
-                punishments = getattr(period, "punishments", None)
-                if not punishments:
-                    continue
-                for p in punishments:
-                    given_by = getattr(p, "given_by", "") or ""
-                    nature = getattr(p, "nature", "") or ""
-                    reason = getattr(p, "reasons", "") or ""
-                    date = getattr(p, "date", None)
-                    duration = getattr(p, "duration", None)
+            for p in client.current_period.punishments:
+                date = getattr(p, "date", None)
+                nature = getattr(p, "nature", "") or ""
+                given_by = getattr(p, "given_by", "") or ""
+                circumstances = getattr(p, "circumstances", "") or ""
+                reasons = getattr(p, "reasons", []) or []
+                duration = getattr(p, "duration", None)
 
-                    item_id = f"pronote-{self.feed_slug}-punishment-{period.id}-{date}-{nature}"
-                    title = (
-                        f"{prefix}Punishment: {nature}"
-                        if nature
-                        else f"{prefix}Punishment"
-                    )
-                    content_parts = [f"<b>Period:</b> {period.name}"]
-                    if nature:
-                        content_parts.append(f"<b>Nature:</b> {nature}")
-                    if given_by:
-                        content_parts.append(f"<b>Given by:</b> {given_by}")
-                    if reason:
-                        content_parts.append(f"<b>Reason:</b> {reason}")
-                    if date:
-                        content_parts.append(f"<b>Date:</b> {date}")
-                    if duration:
-                        content_parts.append(f"<b>Duration:</b> {duration}")
+                reason_txt = "\n".join(str(r) for r in reasons) if reasons else ""
+                item_id = f"pronote-{self.feed_slug}-punishment-{date}-{nature}"
+                title = (
+                    f"{prefix}Punishment: {nature}" if nature else f"{prefix}Punishment"
+                )
 
-                    items.append(
-                        FeedItem(
-                            id=item_id,
-                            title=title,
-                            content="<br/>".join(content_parts),
-                            published=self._to_datetime(date),
-                            category="Punishment",
-                        )
+                content_parts: list[str] = []
+                if nature:
+                    content_parts.append(f"<b>Nature:</b> {nature}")
+                if given_by:
+                    content_parts.append(f"<b>Given by:</b> {given_by}")
+                if circumstances:
+                    content_parts.append(f"<b>Circumstances:</b> {circumstances}")
+                if reason_txt:
+                    content_parts.append(f"<b>Reason:</b> {reason_txt}")
+                if date:
+                    content_parts.append(f"<b>Date:</b> {date}")
+                if duration:
+                    content_parts.append(f"<b>Duration:</b> {duration}")
+
+                items.append(
+                    FeedItem(
+                        id=item_id,
+                        title=title,
+                        content="<br/>".join(content_parts),
+                        published=self._to_datetime(date),
+                        category="Punishment",
                     )
+                )
         except Exception as exc:  # noqa: BLE001
             self.logger.warning("Failed to collect punishments: %s", exc)
         return items
 
     def _collect_absences(self, client, prefix: str) -> list[FeedItem]:
+        """Collect absences from the current period only."""
         items = []
         try:
-            for period in client.periods:
-                absences = getattr(period, "absences", None)
-                if not absences:
-                    continue
-                for absence in absences:
-                    date = getattr(absence, "from_date", None) or getattr(
-                        absence, "date", None
-                    )
-                    justified = getattr(absence, "justified", False)
-                    hours = getattr(absence, "hours", None)
-                    reason = getattr(absence, "reason", "") or ""
+            for absence in client.current_period.absences:
+                from_date = getattr(absence, "from_date", None)
+                to_date = getattr(absence, "to_date", None)
+                justified = getattr(absence, "justified", False)
+                hours = getattr(absence, "hours", None)
+                reasons = getattr(absence, "reasons", []) or []
 
-                    item_id = f"pronote-{self.feed_slug}-absence-{period.id}-{date}"
-                    title = f"{prefix}Absence on {date}" if date else f"{prefix}Absence"
-                    content_parts = [
-                        f"<b>Period:</b> {period.name}",
-                        f"<b>Date:</b> {date}",
-                        f"<b>Justified:</b> {'Yes' if justified else 'No'}",
-                    ]
-                    if hours:
-                        content_parts.append(f"<b>Hours:</b> {hours}")
-                    if reason:
-                        content_parts.append(f"<b>Reason:</b> {reason}")
+                reason_txt = "\n".join(str(r) for r in reasons) if reasons else ""
+                item_id = f"pronote-{self.feed_slug}-absence-{from_date}"
+                date_label = str(from_date) if from_date else "Unknown date"
+                title = f"{prefix}Absence on {date_label}"
 
-                    items.append(
-                        FeedItem(
-                            id=item_id,
-                            title=title,
-                            content="<br/>".join(content_parts),
-                            published=self._to_datetime(date),
-                            category="Absence",
-                        )
+                content_parts = [
+                    f"<b>From:</b> {from_date}",
+                    f"<b>To:</b> {to_date}",
+                    f"<b>Justified:</b> {'Yes' if justified else 'No'}",
+                ]
+                if hours:
+                    content_parts.append(f"<b>Duration:</b> {hours}")
+                if reason_txt:
+                    content_parts.append(f"<b>Reason:</b> {reason_txt}")
+
+                items.append(
+                    FeedItem(
+                        id=item_id,
+                        title=title,
+                        content="<br/>".join(content_parts),
+                        published=self._to_datetime(from_date),
+                        category="Absence",
                     )
+                )
         except Exception as exc:  # noqa: BLE001
             self.logger.warning("Failed to collect absences: %s", exc)
         return items
