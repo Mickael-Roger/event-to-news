@@ -1,0 +1,45 @@
+# event-to-news configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# server: HTTP server settings
+# feeds:  one entry per RSS feed, keyed by its URL slug
+# ─────────────────────────────────────────────────────────────────────────────
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+  # Base URL visible from your FreshRSS instance (change to your server's IP/hostname)
+  base_url: "http://localhost:8000"
+
+feeds:
+  # ── Pronote feed for your first daughter ────────────────────────────────────
+  # Feed available at: http://localhost:8000/feed/alice-pronote
+  #
+  # Before first run, place credentials.json in data/alice-pronote/credentials.json
+  # Generate it once with: uv run python -m pronotepy.create_login
+  alice-pronote:
+    title: "Alice — School (Pronote)"
+    description: "Grades, homework, absences and punishments for Alice"
+    module: pronote
+    schedule: "30m"
+    max_items: 200
+    params:
+      student_name: "Alice"
+      fetch_grades: true
+      fetch_homework: true
+      fetch_punishments: true
+      fetch_absences: true
+
+  # ── Pronote feed for your second daughter ───────────────────────────────────
+  # Place credentials in data/bob-pronote/credentials.json before first run.
+  # bob-pronote:
+  #   title: "Bob — School (Pronote)"
+  #   description: "Grades, homework, absences and punishments for Bob"
+  #   module: pronote
+  #   schedule: "30m"
+  #   max_items: 200
+  #   params:
+  #     student_name: "Bob"
+  #     fetch_grades: true
+  #     fetch_homework: true
+  #     fetch_punishments: true
+  #     fetch_absences: true

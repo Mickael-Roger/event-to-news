@@ -1,0 +1,16 @@
+services:
+  event-to-news:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount your local config file (read-only)
+      - ./config.yml:/app/config.yml:ro
+      # Mount data directory for persistence
+      - ./data:/app/data
+    environment:
+      CONFIG_PATH: /app/config.yml
+      DATA_DIR: /app/data
+    # Optional: use a .env file to override environment variables
+    # env_file: .env
