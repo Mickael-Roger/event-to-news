@@ -18,8 +18,8 @@ COPY src/ src/
 RUN mkdir -p data
 
 # Environment variables with sensible defaults
-ENV CONFIG_PATH=/app/config.yml
-ENV DATA_DIR=/app/data
+ENV CONFIG_PATH=/data/config.yml
+ENV DATA_DIR=/data/data/
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
