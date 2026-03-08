@@ -145,6 +145,7 @@ Authentication:
   ```
 - The module reads, uses, and overwrites this file on every poll (PRONOTE rotates the token each session).
 - No auth fields belong in `config.yml` or `params`.
+- The file format matches what `pronotepy.export_credentials()` produces: keys are `pronote_url`, `username`, `password` (the token), `uuid`, `client_identifier`.
 
 Supported `params` (all optional):
 - `student_name` — cosmetic prefix added to item titles (e.g. `"Alice"`)

@@ -14,9 +14,9 @@ Authentication:
 
   Expected credentials.json format (produced by pronotepy):
       {
-        "url": "https://...",
+        "pronote_url": "https://...",
         "username": "...",
-        "token": "...",
+        "password": "...",   (this IS the rotating token — pronotepy names it "password")
         "uuid": "...",
         "client_identifier": "..."   (optional)
       }
@@ -138,9 +138,9 @@ class PronoteModule(BaseModule):
 
         try:
             return pronotepy.Client.token_login(
-                creds["url"],
+                creds["pronote_url"],
                 creds["username"],
-                creds["token"],
+                creds["password"],  # pronotepy stores the token as "password"
                 creds["uuid"],
                 client_identifier=creds.get("client_identifier"),
             )
