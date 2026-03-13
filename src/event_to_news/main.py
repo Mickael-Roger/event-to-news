@@ -16,11 +16,6 @@ from .config import load_config
 from .scheduler import Scheduler
 from .server import create_app
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 logger = logging.getLogger(__name__)
 
 
@@ -28,8 +23,16 @@ def main() -> None:
     config_path = Path(os.environ.get("CONFIG_PATH", "config.yml"))
     data_dir = Path(os.environ.get("DATA_DIR", "data"))
 
-    logger.info("Loading config from %s", config_path.absolute())
     app_config = load_config(config_path)
+
+    numeric_level = getattr(logging, app_config.log_level.upper(), logging.WARNING)
+    logging.basicConfig(
+        level=numeric_level,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    logger.info("Loading config from %s", config_path.absolute())
 
     scheduler = Scheduler(app_config=app_config, data_dir=data_dir)
     scheduler.setup()

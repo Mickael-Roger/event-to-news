@@ -41,6 +41,9 @@ class AppConfig(BaseModel):
     server: ServerConfig = Field(default_factory=ServerConfig)
     # Mapping of feed slug (used in URL) -> feed configuration
     feeds: dict[str, FeedConfig] = Field(default_factory=dict)
+    # Logging level for the application. One of: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+    # Defaults to WARNING if not set.
+    log_level: str = "WARNING"
 
 
 def load_config(path: Path | str = "config.yml") -> AppConfig:

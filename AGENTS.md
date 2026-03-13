@@ -180,6 +180,20 @@ docker compose up -d
 
 ---
 
+## Logging Configuration
+
+Set `log_level` at the top level of `config.yml` to control verbosity:
+
+```yaml
+log_level: "DEBUG"   # DEBUG | INFO | WARNING | ERROR | CRITICAL
+```
+
+- Defaults to `WARNING` if omitted.
+- Set to `DEBUG` to see per-item logs in every Pronote collector (grades, homework, punishments, absences), including raw counts returned by pronotepy and individual item IDs.
+- The level is applied via `logging.basicConfig` in `main.py` after the config is loaded.
+
+---
+
 ## Lessons Learned
 
 - pronotepy uses a **rotating token**: after each login the token changes. Always call

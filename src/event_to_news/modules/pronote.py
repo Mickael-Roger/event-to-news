@@ -93,6 +93,8 @@ class PronoteModule(BaseModule):
     def _sync_fetch(self) -> list[FeedItem]:
         import pronotepy  # lazy import so a missing dep only fails this module
 
+        self.logger.debug("Starting poll for feed=%r", self.feed_slug)
+
         client = self._login(pronotepy)
         if client is None or not client.logged_in:
             self.logger.error(
@@ -101,20 +103,37 @@ class PronoteModule(BaseModule):
             )
             return []
 
+        self.logger.debug("Logged in successfully; saving rotated credentials")
         # PRONOTE rotates the token on every session — persist immediately
         self._save_credentials(client.export_credentials())
 
         prefix = f"[{self._student_name}] " if self._student_name else ""
         all_items: list[FeedItem] = []
 
+        self.logger.debug(
+            "Fetch flags — grades=%s homework=%s punishments=%s absences=%s",
+            self._fetch_grades,
+            self._fetch_homework,
+            self._fetch_punishments,
+            self._fetch_absences,
+        )
+
         if self._fetch_grades:
-            all_items.extend(self._collect_grades(client, prefix))
+            grades = self._collect_grades(client, prefix)
+            self.logger.debug("Collected %d grade item(s)", len(grades))
+            all_items.extend(grades)
         if self._fetch_homework:
-            all_items.extend(self._collect_homework(client, prefix))
+            homework = self._collect_homework(client, prefix)
+            self.logger.debug("Collected %d homework item(s)", len(homework))
+            all_items.extend(homework)
         if self._fetch_punishments:
-            all_items.extend(self._collect_punishments(client, prefix))
+            punishments = self._collect_punishments(client, prefix)
+            self.logger.debug("Collected %d punishment item(s)", len(punishments))
+            all_items.extend(punishments)
         if self._fetch_absences:
-            all_items.extend(self._collect_absences(client, prefix))
+            absences = self._collect_absences(client, prefix)
+            self.logger.debug("Collected %d absence item(s)", len(absences))
+            all_items.extend(absences)
 
         new_items = self._filter_unseen(all_items)
         self._mark_seen(new_items)
@@ -182,8 +201,12 @@ class PronoteModule(BaseModule):
         """Collect grades across all periods."""
         items = []
         try:
-            for period in client.periods:
-                for grade in period.grades:
+            periods = client.periods
+            self.logger.debug("Fetching grades across %d period(s)", len(periods))
+            for period in periods:
+                grades = period.grades
+                self.logger.debug("Period %r has %d grade(s)", period.name, len(grades))
+                for grade in grades:
                     subject = (
                         getattr(grade.subject, "name", "Unknown")
                         if grade.subject
@@ -196,6 +219,14 @@ class PronoteModule(BaseModule):
 
                     item_id = (
                         f"pronote-{self.feed_slug}-grade-{period.id}-{subject}-{date}"
+                    )
+                    self.logger.debug(
+                        "Grade item: id=%r subject=%r value=%s/%s date=%s",
+                        item_id,
+                        subject,
+                        grade_value,
+                        out_of,
+                        date,
                     )
                     content_parts = [
                         f"<b>Subject:</b> {subject}",
@@ -225,8 +256,12 @@ class PronoteModule(BaseModule):
         import datetime as dt
 
         items = []
+        today = dt.date.today()
+        self.logger.debug("Fetching homework from %s onwards", today)
         try:
-            for hw in client.homework(dt.date.today()):
+            hw_list = list(client.homework(today))
+            self.logger.debug("Received %d homework item(s) from Pronote", len(hw_list))
+            for hw in hw_list:
                 subject = (
                     getattr(hw.subject, "name", "Unknown") if hw.subject else "Unknown"
                 )
@@ -235,6 +270,13 @@ class PronoteModule(BaseModule):
                 done = getattr(hw, "done", False)
 
                 item_id = f"pronote-{self.feed_slug}-homework-{subject}-{due}"
+                self.logger.debug(
+                    "Homework item: id=%r subject=%r due=%s done=%s",
+                    item_id,
+                    subject,
+                    due,
+                    done,
+                )
                 title = f"{prefix}Homework: {subject}"
                 if due:
                     title += f" (due {due})"
@@ -264,7 +306,16 @@ class PronoteModule(BaseModule):
         """Collect punishments from the current period only."""
         items = []
         try:
-            for p in client.current_period.punishments:
+            current_period = client.current_period
+            self.logger.debug(
+                "Fetching punishments for current period: %r",
+                getattr(current_period, "name", current_period),
+            )
+            punishments = list(current_period.punishments)
+            self.logger.debug(
+                "Received %d punishment(s) from Pronote", len(punishments)
+            )
+            for p in punishments:
                 given = getattr(p, "given", None)  # datetime or date
                 nature = getattr(p, "nature", "") or ""
                 giver = getattr(p, "giver", "") or ""
@@ -274,6 +325,14 @@ class PronoteModule(BaseModule):
 
                 reason_txt = "\n".join(str(r) for r in reasons) if reasons else ""
                 item_id = f"pronote-{self.feed_slug}-punishment-{given}-{nature}"
+                self.logger.debug(
+                    "Punishment item: id=%r given=%s nature=%r giver=%r duration=%s",
+                    item_id,
+                    given,
+                    nature,
+                    giver,
+                    duration,
+                )
                 title = (
                     f"{prefix}Punishment: {nature}" if nature else f"{prefix}Punishment"
                 )
@@ -309,7 +368,14 @@ class PronoteModule(BaseModule):
         """Collect absences from the current period only."""
         items = []
         try:
-            for absence in client.current_period.absences:
+            current_period = client.current_period
+            self.logger.debug(
+                "Fetching absences for current period: %r",
+                getattr(current_period, "name", current_period),
+            )
+            absences = list(current_period.absences)
+            self.logger.debug("Received %d absence(s) from Pronote", len(absences))
+            for absence in absences:
                 from_date = getattr(absence, "from_date", None)
                 to_date = getattr(absence, "to_date", None)
                 justified = getattr(absence, "justified", False)
@@ -318,6 +384,14 @@ class PronoteModule(BaseModule):
 
                 reason_txt = "\n".join(str(r) for r in reasons) if reasons else ""
                 item_id = f"pronote-{self.feed_slug}-absence-{from_date}"
+                self.logger.debug(
+                    "Absence item: id=%r from=%s to=%s justified=%s hours=%s",
+                    item_id,
+                    from_date,
+                    to_date,
+                    justified,
+                    hours,
+                )
                 date_label = str(from_date) if from_date else "Unknown date"
                 title = f"{prefix}Absence on {date_label}"
 

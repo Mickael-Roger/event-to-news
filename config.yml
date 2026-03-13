@@ -1,8 +1,12 @@
 # event-to-news configuration
 # ─────────────────────────────────────────────────────────────────────────────
-# server: HTTP server settings
-# feeds:  one entry per RSS feed, keyed by its URL slug
+# server:    HTTP server settings
+# log_level: application log verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+#            defaults to WARNING if omitted
+# feeds:     one entry per RSS feed, keyed by its URL slug
 # ─────────────────────────────────────────────────────────────────────────────
+
+log_level: "WARNING"
 
 server:
   host: "0.0.0.0"
