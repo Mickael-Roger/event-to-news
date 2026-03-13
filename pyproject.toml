@@ -13,6 +13,8 @@ dependencies = [
     "feedgen>=1.0.0",
     "pronotepy>=2.12.0",
     "httpx>=0.27.0",
+    "requests>=2.32.0",
+    "beautifulsoup4>=4.12.0",
 ]
 
 [project.scripts]

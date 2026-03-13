@@ -19,6 +19,7 @@ as RSS feeds consumable by aggregators such as FreshRSS.
 | `src/event_to_news/server.py` | FastAPI HTTP server |
 | `src/event_to_news/main.py` | Entry point |
 | `src/event_to_news/modules/pronote.py` | Pronote school module |
+| `src/event_to_news/modules/cafetaria.py` | Cafetaria credit module |
 
 ---
 
@@ -153,6 +154,24 @@ Supported `params` (all optional):
 - `fetch_homework` — bool, default `true`
 - `fetch_punishments` — bool, default `true`
 - `fetch_absences` — bool, default `true`
+
+---
+
+## Cafetaria Module
+
+Authentication:
+- Credentials are set directly in `params` in `config.yml` (`username` and `password`).
+- No separate credentials file is needed.
+
+Schedule recommendation: use a daily cron at 20:00 — `"0 20 * * *"`.
+
+Supported `params`:
+- `username` — **(required)** portal login username
+- `password` — **(required)** portal login password
+- `student_name` — (optional) cosmetic prefix added to item titles (e.g. `"Alice"`)
+- `site` — (optional) portal site identifier (default `"aes00152"`)
+
+Item ID format: `cafetaria-<slug>-credit-<YYYY-MM-DD>` — one item per calendar day, deduplicated via `seen.db`.
 
 ---
 

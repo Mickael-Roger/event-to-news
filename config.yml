@@ -33,6 +33,21 @@ feeds:
       fetch_punishments: true
       fetch_absences: true
 
+  # ── Cafetaria feed ──────────────────────────────────────────────────────────
+  # Feed available at: http://localhost:8000/feed/alice-cafetaria
+  #
+  # alice-cafetaria:
+  #   title: "Alice — Cafeteria Credit"
+  #   description: "Daily cafeteria credit balance for Alice"
+  #   module: cafetaria
+  #   schedule: "0 20 * * *"
+  #   max_items: 60
+  #   params:
+  #     username: "your_username"
+  #     password: "your_password"
+  #     student_name: "Alice"      # optional
+  #     site: "aes00152"           # optional, default is aes00152
+
   # ── Pronote feed for your second daughter ───────────────────────────────────
   # Place credentials in data/bob-pronote/credentials.json before first run.
   # bob-pronote:
