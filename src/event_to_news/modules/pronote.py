@@ -265,15 +265,15 @@ class PronoteModule(BaseModule):
         items = []
         try:
             for p in client.current_period.punishments:
-                date = getattr(p, "date", None)
+                given = getattr(p, "given", None)  # datetime or date
                 nature = getattr(p, "nature", "") or ""
-                given_by = getattr(p, "given_by", "") or ""
+                giver = getattr(p, "giver", "") or ""
                 circumstances = getattr(p, "circumstances", "") or ""
                 reasons = getattr(p, "reasons", []) or []
                 duration = getattr(p, "duration", None)
 
                 reason_txt = "\n".join(str(r) for r in reasons) if reasons else ""
-                item_id = f"pronote-{self.feed_slug}-punishment-{date}-{nature}"
+                item_id = f"pronote-{self.feed_slug}-punishment-{given}-{nature}"
                 title = (
                     f"{prefix}Punishment: {nature}" if nature else f"{prefix}Punishment"
                 )
@@ -281,14 +281,14 @@ class PronoteModule(BaseModule):
                 content_parts: list[str] = []
                 if nature:
                     content_parts.append(f"<b>Nature:</b> {nature}")
-                if given_by:
-                    content_parts.append(f"<b>Given by:</b> {given_by}")
+                if giver:
+                    content_parts.append(f"<b>Given by:</b> {giver}")
                 if circumstances:
                     content_parts.append(f"<b>Circumstances:</b> {circumstances}")
                 if reason_txt:
                     content_parts.append(f"<b>Reason:</b> {reason_txt}")
-                if date:
-                    content_parts.append(f"<b>Date:</b> {date}")
+                if given:
+                    content_parts.append(f"<b>Date:</b> {given}")
                 if duration:
                     content_parts.append(f"<b>Duration:</b> {duration}")
 
@@ -297,7 +297,7 @@ class PronoteModule(BaseModule):
                         id=item_id,
                         title=title,
                         content="<br/>".join(content_parts),
-                        published=self._to_datetime(date),
+                        published=self._to_datetime(given),
                         category="Punishment",
                     )
                 )
