@@ -221,6 +221,9 @@ log_level: "DEBUG"   # DEBUG | INFO | WARNING | ERROR | CRITICAL
   the asyncio event loop.
 - `FeedItem.id` stability is critical: if the id changes between polls, items appear
   as new in the aggregator even though the content is the same.
+- **NEVER use pronotepy internal `.id` attributes** (e.g. `period.id`, `grade.id`) in
+  `FeedItem.id` construction — PRONOTE regenerates all internal IDs on every session.
+  Use stable human-readable attributes instead (e.g. `period.name`, `subject.name`, date, grade value).
 - APScheduler 3.x (`AsyncIOScheduler`) must be started **after** the asyncio loop is running
   (i.e., inside a FastAPI lifespan handler).
 - Each module instance must have its own private data directory (`data/<feed_slug>/`).

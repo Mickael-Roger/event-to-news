@@ -217,9 +217,7 @@ class PronoteModule(BaseModule):
                     date = getattr(grade, "date", None)
                     comment = getattr(grade, "comment", "") or ""
 
-                    item_id = (
-                        f"pronote-{self.feed_slug}-grade-{period.id}-{subject}-{date}"
-                    )
+                    item_id = f"pronote-{self.feed_slug}-grade-{period.name}-{subject}-{date}-{grade_value}"
                     self.logger.debug(
                         "Grade item: id=%r subject=%r value=%s/%s date=%s",
                         item_id,
