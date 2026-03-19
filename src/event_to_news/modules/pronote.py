@@ -204,6 +204,9 @@ class PronoteModule(BaseModule):
             periods = client.periods
             self.logger.debug("Fetching grades across %d period(s)", len(periods))
             for period in periods:
+                # Fetch period-level averages once per period
+                period_averages = self._get_period_averages(period)
+
                 grades = period.grades
                 self.logger.debug("Period %r has %d grade(s)", period.name, len(grades))
                 for grade in grades:
@@ -216,15 +219,21 @@ class PronoteModule(BaseModule):
                     out_of = str(grade.out_of)
                     date = getattr(grade, "date", None)
                     comment = getattr(grade, "comment", "") or ""
+                    grade_min = getattr(grade, "min", None)
+                    grade_max = getattr(grade, "max", None)
+                    grade_avg = getattr(grade, "average", None)
 
                     item_id = f"pronote-{self.feed_slug}-grade-{period.name}-{subject}-{date}-{grade_value}"
                     self.logger.debug(
-                        "Grade item: id=%r subject=%r value=%s/%s date=%s",
+                        "Grade item: id=%r subject=%r value=%s/%s date=%s min=%s max=%s avg=%s",
                         item_id,
                         subject,
                         grade_value,
                         out_of,
                         date,
+                        grade_min,
+                        grade_max,
+                        grade_avg,
                     )
                     content_parts = [
                         f"<b>Subject:</b> {subject}",
@@ -235,6 +244,41 @@ class PronoteModule(BaseModule):
                         content_parts.append(f"<b>Comment:</b> {comment}")
                     if date:
                         content_parts.append(f"<b>Date:</b> {date}")
+
+                    # Grade-level stats (min, max, class average for this test)
+                    stats_parts = []
+                    if grade_min not in (None, ""):
+                        stats_parts.append(f"Min: {grade_min}")
+                    if grade_max not in (None, ""):
+                        stats_parts.append(f"Max: {grade_max}")
+                    if grade_avg not in (None, ""):
+                        stats_parts.append(f"Class avg: {grade_avg}")
+                    if stats_parts:
+                        content_parts.append(
+                            f"<b>Class stats:</b> {' | '.join(stats_parts)}"
+                        )
+
+                    # Period averages: one row per subject + overall average
+                    if period_averages:
+                        avg_lines = []
+                        for avg in period_averages["subjects"]:
+                            avg_subject = avg.get("subject", "")
+                            avg_student = avg.get("student", "")
+                            avg_class = avg.get("class_average", "")
+                            parts = [f"<b>{avg_subject}:</b> {avg_student}"]
+                            if avg_class not in (None, ""):
+                                parts.append(f"(class: {avg_class})")
+                            avg_lines.append(" ".join(parts))
+                        if avg_lines:
+                            content_parts.append(
+                                "<b>Period averages by subject:</b><br/>"
+                                + "<br/>".join(avg_lines)
+                            )
+                        overall = period_averages.get("overall")
+                        if overall not in (None, ""):
+                            content_parts.append(
+                                f"<b>Overall average ({period.name}):</b> {overall}"
+                            )
 
                     items.append(
                         FeedItem(
@@ -248,6 +292,46 @@ class PronoteModule(BaseModule):
         except Exception as exc:  # noqa: BLE001
             self.logger.warning("Failed to collect grades: %s", exc)
         return items
+
+    def _get_period_averages(self, period) -> dict | None:
+        """Fetch and return subject averages and overall average for a period.
+
+        Returns a dict with keys:
+            - "subjects": list of {"subject", "student", "class_average"} dicts
+            - "overall": str or None
+        Returns None if averages cannot be fetched.
+        """
+        try:
+            raw_averages = period.averages
+            subjects = []
+            for avg in raw_averages:
+                subject_name = getattr(avg, "subject", None)
+                if subject_name is not None:
+                    subject_name = getattr(subject_name, "name", str(subject_name))
+                student_avg = getattr(avg, "student", None)
+                class_avg = getattr(avg, "class_average", None)
+                subjects.append(
+                    {
+                        "subject": subject_name or "",
+                        "student": str(student_avg) if student_avg is not None else "",
+                        "class_average": str(class_avg)
+                        if class_avg is not None
+                        else "",
+                    }
+                )
+            overall = None
+            try:
+                overall = period.overall_average
+            except Exception:  # noqa: BLE001
+                pass
+            return {"subjects": subjects, "overall": overall}
+        except Exception as exc:  # noqa: BLE001
+            self.logger.debug(
+                "Could not fetch averages for period %r: %s",
+                getattr(period, "name", period),
+                exc,
+            )
+            return None
 
     def _collect_homework(self, client, prefix: str) -> list[FeedItem]:
         """Collect homework due from today onwards."""
